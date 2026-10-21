@@ -16,8 +16,6 @@ try:
 except ImportError:
     pass
 
-app = Flask(_name_)
-CORS(app)
 app = Flask(__name__)
 if has_cors_lib:
     CORS(app)
@@ -64,8 +62,9 @@ gemini_key = os.getenv("GEMINI_API_KEY")
 use_live_gemini = False
 vector_store = None
 llm = None
+embeddings = None
 
-if gemini_key:
+if gemini_key and gemini_key != "your_gemini_api_key_here":
     try:
         from langchain_text_splitters import RecursiveCharacterTextSplitter
         from langchain_community.document_loaders import PyPDFLoader, TextLoader
@@ -108,8 +107,6 @@ def stats():
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve vector store statistics: {str(e)}"}), 500
 
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
 @app.route('/api/clear-history', methods=['POST'])
 def clear_chat_history():
     """Clear conversational memory for the active session."""
@@ -134,7 +131,7 @@ def upload_file():
         return jsonify({"error": "No file selected"}), 400
 
     filename = file.filename.lower()
-    if file and (filename.endswith('.pdf') or filename.endswith('.txt')):
+    if file and (filename.endswith('.pdf') or filename.endswith('.txt') or filename.endswith('.md')):
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
 
@@ -146,7 +143,7 @@ def upload_file():
                     reader = pypdf.PdfReader(file_path)
                     raw_text = "\n".join([page.extract_text() or "" for page in reader.pages])
                 except Exception:
-                    # Fallback text extractor
+                    # Fallback binary text extractor
                     with open(file_path, 'rb') as f:
                         content = f.read().decode('latin-1', errors='ignore')
                         raw_text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', content)
@@ -154,14 +151,14 @@ def upload_file():
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     raw_text = f.read()
 
-            # Split text into manageable paragraphs/chunks
+            # Split text into paragraphs/chunks
             paragraphs = [p.strip() for p in raw_text.split('\n\n') if len(p.strip()) > 20]
             if not paragraphs:
                 paragraphs = [raw_text.strip()]
 
             indexed_chunks.extend(paragraphs)
 
-            # If Gemini + Chroma are available, also index to vector store
+            # If Gemini + Chroma are available, index to ChromaDB
             if use_live_gemini:
                 from langchain_community.document_loaders import PyPDFLoader, TextLoader
                 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -177,12 +174,6 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-            # Add embeddings to the existing collection so earlier uploads remain searchable.
-            vector_store.add_documents(chunks)
-            
-            # Clean up local file after processing
-            os.remove(file_path)
-            return jsonify({"message": f"Successfully indexed {file.filename}. Ready for queries."}), 200
             return jsonify({
                 "message": f"Successfully indexed '{file.filename}'. Ready for queries.",
                 "total_chunks": len(indexed_chunks)
@@ -276,8 +267,6 @@ def chat():
     except Exception as e:
         return jsonify({"error": f"An error occurred during inference: {str(e)}"}), 500
 
-if _name_ == '_main_':
-    app.run(debug=True, port=5000)git push -u origin feature/multi-document-upload
 if __name__ == '__main__':
     print("* Nexus RAG Backend Server Starting on http://127.0.0.1:5000")
     app.run(debug=False, port=5000, host='127.0.0.1')
