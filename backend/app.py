@@ -57,6 +57,14 @@ def stats():
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve vector store statistics: {str(e)}"}), 500
 
+@app.route('/api/clear-history', methods=['POST'])
+def clear_chat_history():
+    """Clear conversational memory for the active session."""
+    data = request.json or {}
+    session_id = data.get('session_id', 'default_session')
+    history_collection.delete_one({"session_id": session_id})
+    return jsonify({"message": f"Conversation history for session '{session_id}' cleared successfully."}), 200
+
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     global vector_store
@@ -68,7 +76,7 @@ def upload_file():
         return jsonify({"error": "No file selected"}), 400
 
     filename = file.filename.lower()
-    if file and (filename.endswith('.pdf') or filename.endswith('.txt')):
+    if file and (filename.endswith('.pdf') or filename.endswith('.txt') or filename.endswith('.md')):
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
 
