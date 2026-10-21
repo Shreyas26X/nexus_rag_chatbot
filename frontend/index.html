@@ -33,7 +33,10 @@
     <h3>2. Query Document</h3>
     <div id="chatHistory"></div>
     <input type="text" id="userInput" placeholder="Ask a question about the uploaded document...">
-    <button id="sendQueryButton" onclick="sendQuery()">Send Query</button>
+    <div style="display: flex; gap: 10px; margin-top: 8px;">
+      <button id="sendQueryButton" onclick="sendQuery()">Send Query</button>
+      <button id="clearChatButton" onclick="clearChat()" style="background: #64748b;">Clear Chat</button>
+    </div>
   </div>
 
   <script>
@@ -104,6 +107,19 @@
     document.getElementById("userInput").addEventListener("keydown", (event) => {
       if (event.key === "Enter") sendQuery();
     });
+
+    async function clearChat() {
+      try {
+        await fetch(`${API}/clear-history`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: "demo_session" })
+        });
+        document.getElementById("chatHistory").innerHTML = `<div class="msg" style="color: #666;"><em>Conversation history cleared.</em></div>`;
+      } catch (err) {
+        alert("Failed to clear chat history.");
+      }
+    }
   </script>
 </body>
 </html>
