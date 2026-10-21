@@ -33,7 +33,7 @@
     <h3>2. Query Document</h3>
     <div id="chatHistory"></div>
     <input type="text" id="userInput" placeholder="Ask a question about the uploaded document...">
-    <button onclick="sendQuery()">Send Query</button>
+    <button id="sendQueryButton" onclick="sendQuery()">Send Query</button>
   </div>
 
   <script>
@@ -42,7 +42,7 @@
     async function uploadDoc() {
       const file = document.getElementById("docFile").files[0];
       if (!file) return alert("Please select a file first.");
-      
+
       const formData = new FormData();
       formData.append("file", file);
       document.getElementById("uploadStatus").innerText = "Indexing document...";
@@ -50,10 +50,22 @@
       try {
         const res = await fetch(`${API}/upload`, { method: "POST", body: formData });
         const data = await res.json();
-        document.getElementById("uploadStatus").innerText = data.message || data.error;
+        document.getElementById("uploadStatus").innerText = data.message || data.error || "Unexpected server response.";
       } catch (err) {
         document.getElementById("uploadStatus").innerText = "Error connecting to server.";
       }
+    }
+
+    function appendMessage(history, className, label, text) {
+      const message = document.createElement("div");
+      message.className = "msg";
+
+      const prefix = document.createElement("span");
+      prefix.className = className;
+      prefix.textContent = `${label}:`;
+
+      message.append(prefix, document.createTextNode(` ${text}`));
+      history.append(message);
     }
 
     async function sendQuery() {
@@ -62,8 +74,11 @@
       if (!query) return;
 
       const history = document.getElementById("chatHistory");
-      history.innerHTML += `<div class="msg"><span class="user">You:</span> ${query}</div>`;
+      const sendButton = document.getElementById("sendQueryButton");
+      appendMessage(history, "user", "You", query);
       input.value = "";
+      input.disabled = true;
+      sendButton.disabled = true;
 
       try {
         const res = await fetch(`${API}/chat`, {
@@ -72,13 +87,23 @@
           body: JSON.stringify({ message: query, session_id: "demo_session" })
         });
         const data = await res.json();
-        const reply = data.response || data.error || "No response";
-        history.innerHTML += `<div class="msg"><span class="bot">AI:</span> ${reply}</div>`;
+        const reply = res.ok
+          ? data.response || "Unexpected server response."
+          : data.error || `Request failed (${res.status}).`;
+        appendMessage(history, "bot", "AI", reply);
       } catch (err) {
-        history.innerHTML += `<div class="msg"><span class="bot">AI:</span> Error reaching backend.</div>`;
+        appendMessage(history, "bot", "AI", "Error reaching backend.");
+      } finally {
+        input.disabled = false;
+        sendButton.disabled = false;
+        input.focus();
+        history.scrollTop = history.scrollHeight;
       }
-      history.scrollTop = history.scrollHeight;
     }
+
+    document.getElementById("userInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") sendQuery();
+    });
   </script>
 </body>
 </html>
