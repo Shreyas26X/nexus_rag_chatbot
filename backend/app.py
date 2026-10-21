@@ -14,7 +14,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(_name_)
 CORS(app)
 
 # Ensure upload folder exists
@@ -57,17 +57,8 @@ def stats():
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve vector store statistics: {str(e)}"}), 500
 
-@app.route('/api/clear-history', methods=['POST'])
-def clear_chat_history():
-    """Clear conversational memory for the active session."""
-    data = request.json or {}
-    session_id = data.get('session_id', 'default_session')
-    history_collection.delete_one({"session_id": session_id})
-    return jsonify({"message": f"Conversation history for session '{session_id}' cleared successfully."}), 200
-
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
-    global vector_store
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
     
@@ -76,7 +67,7 @@ def upload_file():
         return jsonify({"error": "No file selected"}), 400
 
     filename = file.filename.lower()
-    if file and (filename.endswith('.pdf') or filename.endswith('.txt') or filename.endswith('.md')):
+    if file and (filename.endswith('.pdf') or filename.endswith('.txt')):
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
 
@@ -94,8 +85,8 @@ def upload_file():
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
             chunks = text_splitter.split_documents(documents)
 
-            # Store embeddings in ChromaDB
-            vector_store = Chroma.from_documents(chunks, embeddings, persist_directory="./chroma_db")
+            # Add embeddings to the existing collection so earlier uploads remain searchable.
+            vector_store.add_documents(chunks)
             
             # Clean up local file after processing
             os.remove(file_path)
@@ -154,5 +145,5 @@ def chat():
     except Exception as e:
         return jsonify({"error": f"An error occurred during inference: {str(e)}"}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if _name_ == '_main_':
+    app.run(debug=True, port=5000)git push -u origin feature/multi-document-upload
