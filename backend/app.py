@@ -16,6 +16,8 @@ try:
 except ImportError:
     pass
 
+app = Flask(_name_)
+CORS(app)
 app = Flask(__name__)
 if has_cors_lib:
     CORS(app)
@@ -106,6 +108,8 @@ def stats():
     except Exception as e:
         return jsonify({"error": f"Failed to retrieve vector store statistics: {str(e)}"}), 500
 
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
 @app.route('/api/clear-history', methods=['POST'])
 def clear_chat_history():
     """Clear conversational memory for the active session."""
@@ -130,7 +134,7 @@ def upload_file():
         return jsonify({"error": "No file selected"}), 400
 
     filename = file.filename.lower()
-    if file and (filename.endswith('.pdf') or filename.endswith('.txt') or filename.endswith('.md')):
+    if file and (filename.endswith('.pdf') or filename.endswith('.txt')):
         file_path = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(file_path)
 
@@ -173,6 +177,12 @@ def upload_file():
             if os.path.exists(file_path):
                 os.remove(file_path)
 
+            # Add embeddings to the existing collection so earlier uploads remain searchable.
+            vector_store.add_documents(chunks)
+            
+            # Clean up local file after processing
+            os.remove(file_path)
+            return jsonify({"message": f"Successfully indexed {file.filename}. Ready for queries."}), 200
             return jsonify({
                 "message": f"Successfully indexed '{file.filename}'. Ready for queries.",
                 "total_chunks": len(indexed_chunks)
@@ -266,6 +276,8 @@ def chat():
     except Exception as e:
         return jsonify({"error": f"An error occurred during inference: {str(e)}"}), 500
 
+if _name_ == '_main_':
+    app.run(debug=True, port=5000)git push -u origin feature/multi-document-upload
 if __name__ == '__main__':
     print("* Nexus RAG Backend Server Starting on http://127.0.0.1:5000")
     app.run(debug=False, port=5000, host='127.0.0.1')
